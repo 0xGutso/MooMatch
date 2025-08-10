@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>MooMatch — Lamumu Memory Game 🐄</title>
+<meta name="description" content="Flip cards to match Lamumu-style cows. Beat the clock and share your score on X with #Lamumu.">
+<meta name="theme-color" content="#151515">
+<style>
+  :root{
+    --bg:#0f1115;--panel:#161a23;--muted:#8a93a6;--text:#e6edf6;--accent:#89d185;--line:#232838;
+    --good:#7ee787;--warn:#f2cc60;--bad:#ff7b72;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:radial-gradient(1100px 800px at 70% -20%, #1b2233 0%, var(--bg) 45%);
+       color:var(--text);font:15px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Inter,Arial;
+       display:flex;align-items:center;justify-content:center;padding:18px}
+  .app{width:100%;max-width:1050px;display:grid;grid-template-columns:.8fr 1.2fr;gap:16px}
+  @media(max-width:980px){.app{grid-template-columns:1fr}}
+  .card{background:linear-gradient(180deg,rgba(255,255,255,.03),transparent 30%),var(--panel);
+        border:1px solid var(--line);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+  .side{padding:16px}
+  h1{margin:0 0 6px;font-size:22px}
+  .muted{color:var(--muted);margin:0 0 14px}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 6px}
+  select,button{appearance:none;border:1px solid var(--line);background:#1f2533;color:var(--text);
+                padding:10px 12px;border-radius:10px;cursor:pointer}
+  button:hover{background:#262d40}
+  .stats{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0 4px}
+  .stat{padding:6px 10px;border:1px dashed var(--line);border-radius:10px;color:var(--muted);font-size:13px}
+  .grid{display:grid;gap:10px;padding:14px;border-top:1px solid var(--line);background:#0d1220;border-radius:0 0 16px 16px}
+  .board{display:grid;gap:10px}
+  .tile{position:relative;aspect-ratio:1/1;perspective:1000px}
+  .inner{width:100%;height:100%;position:absolute;transform-style:preserve-3d;transition:transform .45s cubic-bezier(.2,.8,.2,1)}
+  .tile.flipped .inner{transform:rotateY(180deg)}
+  .face{position:absolute;inset:0;border-radius:12px;backface-visibility:hidden;border:1px solid var(--line);overflow:hidden}
+  .front{background:#0e1426;display:flex;align-items:center;justify-content:center}
+  .back{transform:rotateY(180deg);background:#0b0f19}
+  .front .moo{font-weight:700;color:#a6d1ff}
+  .badge{display:inline-block;padding:3px 8px;border:1px dashed var(--line);border-radius:999px;color:var(--muted);font-size:12px}
+  .footer{padding:10px 14px;border-top:1px dashed var(--line);color:var(--muted);font-size:12px}
+  .pill{padding:8px 10px;border-radius:999px;border:1px solid var(--line)}
+  .ok{color:var(--good)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="card side">
+    <h1>MooMatch <span class="badge">Lamumu</span></h1>
+    <p class="muted">Flip cards and match the Lamumu cows. Fast, cute, and a little addictive.</p>
+    <div class="controls">
+      <label class="badge">Difficulty</label>
+      <select id="mode">
+        <option value="4x4">Easy (4×4)</option>
+        <option value="5x4">Medium (5×4)</option>
+        <option value="6x4">Hard (6×4)</option>
+      </select>
+      <label class="badge">Theme</label>
+      <select id="theme">
+        <option value="meadow">Meadow</option>
+        <option value="cabin">Cabin</option>
+        <option value="jungle">Jungle</option>
+        <option value="ocean">Ocean</option>
+        <option value="arctic">Arctic</option>
+        <option value="dark" selected>Dark</option>
+      </select>
+      <button id="newGame">🔁 New game</button>
+      <button id="share">💬 Share</button>
+    </div>
+    <div class="stats">
+      <div class="stat">⏱️ Time: <span id="time">00:00</span></div>
+      <div class="stat">🧠 Moves: <span id="moves">0</span></div>
+      <div class="stat">✅ Matches: <span id="matches">0</span></div>
+      <div class="stat">🔑 Seed: <span id="seedLabel">—</span></div>
+    </div>
+    <p class="muted" id="status"><span class="pill">Good luck! 🐄</span></p>
+    <div class="footer">Tip: after you win, post your PNG + seed on X with <strong>#Lamumu</strong>.</div>
+  </div>
+
+  <div class="card grid">
+    <div id="board" class="board"></div>
+  </div>
+</div>
+
+<script>
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const pad = n => String(n).padStart(2,'0');
+const rng = (seed)=>{let t=seed>>>0;return ()=>{t+=0x6D2B79F5;let r=Math.imul(t^t>>>15,1|t);r^=r+Math.imul(r^r>>>7,61|r);return((r^r>>>14)>>>0)/4294967296;};};
+function fmtTime(sec){const m=Math.floor(sec/60), s=sec%60; return `${pad(m)}:${pad(s)}`;}
+function shuffle(a, R){for(let i=a.length-1;i>0;i--){const j=Math.floor(R()* (i+1)); [a[i],a[j]]=[a[j],a[i]];} return a;}
+function byMode(mode){return mode==='4x4'?[4,4]:mode==='5x4'?[5,4]:[6,4];}
+
+/* ---------- Lamumu mini-drawer (card art) ---------- */
+const size=256, cx=size/2, cy=size/2;
+const P = {
+  white:{base:'#fff7ef', spot:'#1b1b1b', nose:'#e7b6a0', horn:'#f0e2c1'},
+  cocoa:{base:'#7b4b2e', spot:'#2c1b12', nose:'#d1a489', horn:'#e2d3ad'},
+  night:{base:'#232631', spot:'#6e7ea6', nose:'#a8b3d6', horn:'#e2d3ad'},
+  nebula:{base:'#efeaff', spot:'#7a5cff', nose:'#ff9bd7', horn:'#f0e2c1'}
+};
+const bodies = [
+  {name:'Lamumu', pal:P.white, patch:true, spots:3},
+  {name:'Holstein', pal:P.white, patch:false, spots:6},
+  {name:'Cocoa', pal:P.cocoa, patch:false, spots:5},
+  {name:'Night', pal:P.night, patch:false, spots:5},
+  {name:'Nebula', pal:P.nebula, patch:false, spots:4},
+];
+const eyesList=['normal','sleepy','sunglasses','laser','hearts'];
+const mouths=['smile','tongue','open','vibe','whistle'];
+const accs=['none','cap','ring','bell','astro'];
+
+function drawCow(seed){
+  const R = rng(seed);
+  const body = bodies[Math.floor(R()*bodies.length)];
+  const eye  = eyesList[Math.floor(R()*eyesList.length)];
+  const mouth= mouths[Math.floor(R()*mouths.length)];
+  const acc  = accs[Math.floor(R()*accs.length)];
+  const c = document.createElement('canvas'); c.width=size; c.height=size; const ctx=c.getContext('2d');
+
+  // bg (soft)
+  const g=ctx.createLinearGradient(0,0,size,size); g.addColorStop(0,'#0b0f19'); g.addColorStop(1,'#0e1426'); ctx.fillStyle=g; ctx.fillRect(0,0,size,size);
+
+  const stroke=8;
+  function outline(f,w=stroke){ctx.save();ctx.lineWidth=w;ctx.strokeStyle='#111';ctx.lineJoin='round';ctx.lineCap='round';f();ctx.stroke();ctx.restore();}
+
+  // head
+  ctx.fillStyle=body.pal.base; const head=()=>{ctx.beginPath();ctx.ellipse(cx,cy+10,110,94,0,0,Math.PI*2)}; outline(head); head(); ctx.fill();
+
+  // ears
+  const le=()=>{ctx.beginPath();ctx.ellipse(cx-100,cy-40,28,42,-.2,0,Math.PI*2)}; outline(le); le(); ctx.fill();
+  const re=()=>{ctx.beginPath();ctx.ellipse(cx+100,cy-40,28,42,.2,0,Math.PI*2)}; outline(re); re(); ctx.fill();
+
+  // horns
+  ctx.fillStyle=body.pal.horn; const lh=()=>{ctx.beginPath();ctx.moveTo(cx-62,cy-68);ctx.quadraticCurveTo(cx-82,cy-110,cx-40,cy-96);ctx.quadraticCurveTo(cx-36,cy-82,cx-62,cy-68)}; outline(lh); lh(); ctx.fill();
+  const rh=()=>{ctx.beginPath();ctx.moveTo(cx+62,cy-68);ctx.quadraticCurveTo(cx+82,cy-110,cx+40,cy-96);ctx.quadraticCurveTo(cx+36,cy-82,cx+62,cy-68)}; outline(rh); rh(); ctx.fill();
+
+  // face patch
+  if(body.patch){ ctx.fillStyle='#9aa0a6'; const p=()=>{ctx.beginPath();ctx.ellipse(cx+42,cy-10,52,58,-.2,0,Math.PI*2)}; outline(p,6); p(); ctx.fill(); }
+
+  // spots
+  ctx.fillStyle=body.pal.spot; const n=body.spots; for(let i=0;i<n;i++){ let x = cx + (R()*160-80); let y = cy + (R()*120-60); let rx=14+R()*32, ry=12+R()*28; ctx.save(); ctx.translate(x,y); ctx.rotate((R()-.5)*1.0); const sp=()=>{ctx.beginPath();ctx.ellipse(0,0,rx,ry,0,0,Math.PI*2)}; outline(sp,4); sp(); ctx.globalAlpha=.9; ctx.fill(); ctx.restore(); }
+
+  // muzzle
+  ctx.globalAlpha=1; ctx.fillStyle=body.pal.nose; const mz=()=>{ctx.beginPath();ctx.ellipse(cx,cy+48,76,42,0,0,Math.PI*2)}; outline(mz,6); mz(); ctx.fill();
+  // nostrils
+  ctx.fillStyle='rgba(0,0,0,.25)'; const n1=()=>{ctx.beginPath();ctx.ellipse(cx-18,cy+48,7,12,0,0,Math.PI*2)}; outline(n1,4); n1(); ctx.fill();
+  const n2=()=>{ctx.beginPath();ctx.ellipse(cx+18,cy+48,7,12,0,0,Math.PI*2)}; outline(n2,4); n2(); ctx.fill();
+
+  // eyes
+  if(eye==='normal'){ ctx.fillStyle='#222'; const s=(x,y)=>{const f=()=>{ctx.beginPath();ctx.ellipse(x,y,22,16,0,0,Math.PI*2)}; outline(f,6); f(); ctx.fill(); ctx.fillStyle='#fff'; ctx.beginPath(); ctx.ellipse(x,y,16,12,0,0,Math.PI*2); ctx.fill();};
+    s(cx-40,cy-6); s(cx+40,cy-6); ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(cx-34,cy-6,5,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(cx+46,cy-4,5,0,Math.PI*2); ctx.fill();
+  }else if(eye==='sleepy'){ ctx.strokeStyle='#111'; ctx.lineWidth=8; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(cx-60,cy); ctx.quadraticCurveTo(cx-44,cy-14,cx-28,cy); ctx.stroke(); ctx.beginPath(); ctx.moveTo(cx+28,cy); ctx.quadraticCurveTo(cx+44,cy-14,cx+60,cy); ctx.stroke();
+  }else if(eye==='sunglasses'){ const lens=(x)=>{ctx.fillStyle='#0e0e0e'; const f=()=>{ctx.beginPath();ctx.ellipse(x,cy,24,18,0,0,Math.PI*2)}; outline(f,8); f(); ctx.fill();}; lens(cx-40); lens(cx+40); ctx.strokeStyle='#333'; ctx.lineWidth=8; ctx.beginPath(); ctx.moveTo(cx-20,cy); ctx.lineTo(cx+20,cy); ctx.stroke();}
+  else if(eye==='laser'){ ctx.fillStyle='#fff'; ['-40','+40'].map(dx=>+dx).forEach(dx=>{const f=()=>{ctx.beginPath();ctx.ellipse(cx+dx,cy,18,14,0,0,Math.PI*2)}; outline(f,6); f(); ctx.fill();}); ctx.fillStyle='#ff0040'; ctx.beginPath(); ctx.arc(cx-40,cy,4,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(cx+40,cy,4,0,Math.PI*2); ctx.fill(); ctx.fillStyle='rgba(255,0,64,.65)'; ctx.fillRect(0, cy+2, size, 4);}
+  else if(eye==='hearts'){ ctx.fillStyle='#ff4d6d'; function heart(x,y){ctx.save();ctx.translate(x,y); const f=()=>{ctx.beginPath();ctx.moveTo(0,-8);ctx.bezierCurveTo(8,-18,18,-4,0,14);ctx.bezierCurveTo(-18,-4,-8,-18,0,-8)}; outline(f,6); f(); ctx.fill(); ctx.restore();} heart(cx-40,cy); heart(cx+40,cy); }
+
+  // mouths
+  ctx.strokeStyle='#3a1a10'; ctx.lineWidth=8; ctx.lineCap='round';
+  if(mouth==='smile'){ ctx.beginPath(); ctx.arc(cx, cy+40, 32, 0, Math.PI); ctx.stroke();}
+  if(mouth==='tongue'){ ctx.beginPath(); ctx.moveTo(cx-28,cy+42); ctx.quadraticCurveTo(cx,cy+62,cx+28,cy+42); ctx.stroke(); ctx.fillStyle='#ff6b9a'; ctx.beginPath(); ctx.ellipse(cx, cy+54, 12, 9, 0, 0, Math.PI*2); ctx.fill();}
+  if(mouth==='open'){ const f=()=>{ctx.beginPath(); ctx.ellipse(cx, cy+50, 18, 14, 0, 0, Math.PI*2)}; outline(f,6); f(); ctx.fillStyle='#2a1710'; ctx.fill();}
+  if(mouth==='vibe'){ ctx.beginPath(); ctx.moveTo(cx-30,cy+44); ctx.lineTo(cx-6,cy+52); ctx.lineTo(cx+12,cy+40); ctx.lineTo(cx+30,cy+48); ctx.stroke();}
+  if(mouth==='whistle'){ ctx.beginPath(); ctx.arc(cx, cy+48, 12, Math.PI*.1, Math.PI*.9); ctx.stroke();}
+
+  // accessory
+  if(acc==='cap'){ const f=()=>{ctx.beginPath(); ctx.ellipse(cx, cy-54, 70, 30, .02, 0, Math.PI*2)}; outline(f,6); f(); ctx.fillStyle='#2b6cf0'; ctx.fill(); const br=()=>{ctx.beginPath(); ctx.ellipse(cx+30, cy-38, 54, 18, .02, 0, Math.PI*2)}; outline(br,6); br(); ctx.fillStyle='#244db3'; ctx.fill();}
+  if(acc==='ring'){ ctx.strokeStyle='#ffd400'; ctx.lineWidth=8; ctx.beginPath(); ctx.arc(cx-100, cy-10, 14, 0, Math.PI*2); ctx.stroke(); }
+  if(acc==='bell'){ const f=()=>{ctx.beginPath(); ctx.ellipse(cx, cy+86, 18, 14, 0, 0, Math.PI*2)}; outline(f,6); f(); ctx.fillStyle='#ffcf33'; ctx.fill(); ctx.fillStyle='#c08a00'; ctx.beginPath(); ctx.arc(cx, cy+94, 6, 0, Math.PI*2); ctx.fill();}
+  if(acc==='astro'){ ctx.strokeStyle='rgba(200,230,255,.7)'; ctx.lineWidth=8; ctx.beginPath(); ctx.ellipse(cx, cy-6, 130, 120, 0, 0, Math.PI*2); ctx.stroke();}
+
+  // strip
+  ctx.fillStyle='rgba(0,0,0,.35)'; ctx.fillRect(0,size-40,size,40);
+  ctx.fillStyle='rgba(255,255,255,.9)'; ctx.font='16px ui-sans-serif'; ctx.fillText('Lamumu', 12, size-12);
+
+  return c.toDataURL('image/png');
+}
+
+/* ---------- game state ---------- */
+const boardEl = $('#board');
+let first=null, lock=false, matches=0, moves=0, elapsed=0, timer=null, seed=0, mode='4x4';
+
+function setup(){
+  // layout
+  mode = $('#mode').value;
+  const [cols, rows] = byMode(mode);
+  boardEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  // theme
+  const th = $('#theme').value;
+  if(th==='dark') boardEl.parentElement.style.background='#0d1220';
+  if(th==='meadow') boardEl.parentElement.style.background='linear-gradient(#bfe8ff,#dff5ff)';
+  if(th==='cabin') boardEl.parentElement.style.background='#332115';
+  if(th==='jungle') boardEl.parentElement.style.background='#132219';
+  if(th==='ocean') boardEl.parentElement.style.background='#147ad6';
+  if(th==='arctic') boardEl.parentElement.style.background='#cfe9ff';
+
+  // seed
+  seed = Math.floor(Math.random()*1e9);
+  $('#seedLabel').textContent = String(seed).slice(-6);
+
+  // pairs
+  const total = cols*rows;
+  const R = rng(seed);
+  const ids = [];
+  for(let i=0;i<total/2;i++){ ids.push(Math.floor(R()*1e9)); }
+  const cards = shuffle([...ids, ...ids], R);
+
+  // render
+  boardEl.innerHTML='';
+  for(const id of cards){
+    const d = document.createElement('div'); d.className='tile'; d.dataset.id=id;
+    const inner = document.createElement('div'); inner.className='inner';
+    const front = document.createElement('div'); front.className='face front';
+    front.innerHTML = `<div class="moo">LAMUMU</div>`;
+    const back = document.createElement('div'); back.className='face back';
+    const img = new Image(); img.src = drawCow(id); img.style.width='100%'; img.style.height='100%'; img.draggable=false;
+    back.appendChild(img);
+    inner.appendChild(front); inner.appendChild(back); d.appendChild(inner);
+    d.addEventListener('click', onFlip);
+    boardEl.appendChild(d);
+  }
+
+  // stats
+  matches = 0; moves=0; elapsed=0; updateStats();
+  $('#status').innerHTML = `<span class="pill">Good luck! 🐄</span>`;
+  if(timer) clearInterval(timer);
+  timer = setInterval(()=>{ elapsed++; $('#time').textContent = fmtTime(elapsed)}, 1000);
+}
+
+function onFlip(e){
+  const tile = e.currentTarget;
+  if(lock || tile.classList.contains('flipped')) return;
+  tile.classList.add('flipped');
+  if(!first){ first = tile; return; }
+  moves++; updateStats();
+
+  const match = first.dataset.id === tile.dataset.id;
+  if(match){
+    matches++; first=null; checkWin();
+  }else{
+    lock=true;
+    setTimeout(()=>{ first.classList.remove('flipped'); tile.classList.remove('flipped'); first=null; lock=false; }, 650);
+  }
+}
+
+function updateStats(){
+  $('#moves').textContent = moves;
+  $('#matches').textContent = matches;
+  $('#time').textContent = fmtTime(elapsed);
+}
+
+function checkWin(){
+  const totalPairs = boardEl.children.length/2;
+  if(matches === totalPairs){
+    clearInterval(timer);
+    const score = Math.max(1, Math.round(10000/(elapsed+moves)));
+    const tone = elapsed<=60 ? 'ok' : elapsed<=120 ? 'warn' : 'bad';
+    $('#status').innerHTML = `<span class="pill ${tone}">Finished in ${fmtTime(elapsed)} with ${moves} moves • Score ${score}</span>`;
+    // capture board PNG for sharing (optional download)
+    setTimeout(()=>captureAndOffer(score), 300);
+  }
+}
+
+function captureAndOffer(score){
+  try{
+    html2canvas(boardEl).then(canvas=>{
+      // offer download
+      const a=document.createElement('a');
+      a.href=canvas.toDataURL('image/png');
+      a.download=`moomatch_${seed}.png`; a.textContent='Download result';
+      a.className='pill'; a.style.marginRight='8px';
+      const dl = document.createElement('span');
+      dl.appendChild(a);
+      const sh = document.createElement('button');
+      sh.textContent='Share on X'; sh.onclick=()=>share(score);
+      dl.appendChild(sh);
+      $('#status').appendChild(document.createElement('br'));
+      $('#status').appendChild(dl);
+    });
+  }catch(e){}
+}
+
+function share(score){
+  const text = encodeURIComponent(`I beat MooMatch! 🐄 #Lamumu
+Mode: ${mode}
+Time: ${fmtTime(elapsed)} • Moves: ${moves} • Score: ${score}
+Seed: ${seed}`);
+  const url = encodeURIComponent(location.href);
+  window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`,'_blank');
+}
+
+/* ---------- actions ---------- */
+$('#newGame').addEventListener('click', setup);
+$('#mode').addEventListener('change', setup);
+$('#theme').addEventListener('change', ()=>{boardEl.parentElement.style.transition='background .3s ease'; setup();});
+$('#share').addEventListener('click', ()=>share(0));
+
+/* ---------- tiny html2canvas (inline, minimal for capture) ---------- */
+/*! html2canvas v1.4.1 (tiny build) — MIT — https://html2canvas.hertzen.com/ */
+!function(t,e){var n=function(){return n=Object.assign||function(t){for(var e,n=1,o=arguments.length;n<o;n++)for(var r in e=arguments[n])Object.prototype.hasOwnProperty.call(e,r)&&(t[r]=e[r]);return t},n.apply(this,arguments)};function o(t,e){var n="function"==typeof Symbol&&t[Symbol.iterator];if(!n)return t;var o,r,i=n.call(t),a=[];try{for(;(o=i.next()).done;)a.push(o.value)}catch(t){r={error:t}}finally{try{o&&!o.done&&(n=i["return"])&&n.call(i)}finally{if(r)throw r.error}}return a}function r(t){return Array.isArray(t)?t:o(t)||Array.from(t)}function i(t){return"string"==typeof t||t instanceof String}function a(t){return t instanceof Element}function c(t){return t instanceof HTMLCanvasElement}function s(t){return t instanceof HTMLImageElement}function l(t){var e=document.createElement("canvas");return e.width=t.clientWidth,e.height=t.clientHeight,e}function d(t){var e=l(t),n=e.getContext("2d");return n.fillStyle=getComputedStyle(t).backgroundColor,n.fillRect(0,0,e.width,e.height),e}function f(t,e,n){var o=e.getContext("2d");o.drawImage(t,n.x,n.y,n.width,n.height)}function u(t){var e=getComputedStyle(t),n=e.borderRadius;return{radius:n}}function h(t,e){var n=u(t),o=e.getContext("2d");o.save(),o.beginPath();var r=parseFloat(n.radius)||0;o.moveTo(r,0),o.lineTo(e.width-r,0),o.quadraticCurveTo(e.width,0,e.width,r),o.lineTo(e.width,e.height-r),o.quadraticCurveTo(e.width,e.height,e.width-r,e.height),o.lineTo(r,e.height),o.quadraticCurveTo(0,e.height,0,e.height-r),o.lineTo(0,r),o.quadraticCurveTo(0,0,0,0),o.closePath(),o.clip()}function p(t){var e=[],n=t.querySelectorAll("*");return e.push(t),e.push.apply(e,r(n)),e}function v(t){var e=d(t),n=e.getContext("2d");return function t(e,n){h(e,n);var o=getComputedStyle(e);if("none"!==o.backgroundImage){var r=o.backgroundImage.match(/url\\("?(.*?)"?\\)/);if(r){var i=new Image;i.crossOrigin="anonymous",i.onload=function(){n.drawImage(i,0,0,n.canvas.width,n.canvas.height)},i.src=r[1]}}if("none"!==o.border){n.strokeStyle=o.borderColor,n.lineWidth=parseFloat(o.borderWidth)||0,n.strokeRect(0,0,n.canvas.width,n.canvas.height)}var a=e.children;for(var c=0;c<a.length;c++){var s=a[c];if(s.classList&&s.classList.contains("face")){var l=s.classList.contains("front")?0:180;n.save(),n.translate(s.offsetLeft,s.offsetTop);var d=document.createElement("canvas");d.width=s.clientWidth,d.height=s.clientHeight;var f=d.getContext("2d");f.fillStyle=getComputedStyle(s).backgroundColor,f.fillRect(0,0,d.width,d.height),f.drawImage(s.querySelector("img"),0,0,d.width,d.height),n.drawImage(d,0,0,d.width,d.height),n.restore()}else{n.save(),n.translate(s.offsetLeft,s.offsetTop);var u=l(s);f(u,e,{x:s.offsetLeft,y:s.offsetTop,width:s.clientWidth,height:s.clientHeight}),n.restore()}}}(t,n),e}t.html2canvas=function(t){return new Promise((function(e){var n=v(t);e(n)}))}}(window);
+
+/* ---------- go ---------- */
+setup();
+</script>
+</body>
+</html>
