@@ -63,6 +63,18 @@ input{min-width:170px}
   margin:0;                    /* ❌ önceki margin:150px 0 satırını KALDIR */
   overflow:hidden;
 }
+.sidebar {
+  margin-top: 30px;  /* istediğin kadar oynat, örn. 20-40px */
+}
+/* Sağ tarafı daha kompakt yap */
+.board-container {
+  max-height: 80vh;   /* ekranın %80’i kadar */
+  margin-top: 15px;   /* üstten boşluk */
+  margin-bottom: 15px;/* alttan boşluk */
+  display: flex;
+  align-items: center;   /* dikey ortala */
+  justify-content: center; /* yatay ortala */
+}
 .board{
   display:grid;
   gap:var(--gap,10px);
@@ -454,10 +466,6 @@ function fitBoard(){
   boardEl.style.gridTemplateColumns = `repeat(${cols}, var(--tile))`;
 }
 
-
-
-
-
 function onFlip(e){
   const tile = e.currentTarget;
 
@@ -490,7 +498,6 @@ function onFlip(e){
     }, 650);
   }
 }
-
 
 function updateStats(){
   $('#moves').textContent = moves;
