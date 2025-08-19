@@ -501,15 +501,21 @@ function offerShare(score){
 
 function share(score){
   const username = ($('#username').value || 'anon').slice(0,20);
-  const text = encodeURIComponent(
-`I beat MooMatch! 🐄 #Lamumu @lamumudotxyz
-User: ${username}
-Mode: ${mode}
-Time: ${fmtTime(elapsed)} • Moves: ${moves} • Score: ${score}
-Seed: ${seed}`
-  );
-  const url = encodeURIComponent(location.href);
-  window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`,'_blank');
+
+  const text = [
+    'I beat MooMatch! 🐄',
+    `User: ${username}`,
+    `Mode: ${mode}`,
+    `Time: ${fmtTime(elapsed)} • Moves: ${moves} • Score: ${score}`,
+    `Seed: ${seed} https://moo-match.vercel.app/`,
+    '',
+    'gMoo 🐮',
+    '',
+    '#MooMatch @lamumudotxyz'
+  ].join('\n');
+
+  const intent = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text);
+  window.open(intent, '_blank');
 }
 
 /* ---------- leaderboard ---------- */
