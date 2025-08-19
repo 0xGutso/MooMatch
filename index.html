@@ -23,20 +23,24 @@ body{
   padding:18px;
   overflow:hidden; /* Patch B ekleme */
 }
-.app {
-  grid-template-columns: 320px 1fr;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  overflow: hidden;
+.app{
+  width:100%;
+  max-width:1200px;
+  display:grid;
+  grid-template-columns:320px 1fr;   /* sol panel 320px */
+  gap:16px;
+  align-items:start;                  /* kutuları üstten hizala */
 }
 @media(max-width:980px){.app{grid-template-columns:1fr}}
 .card{
   background:linear-gradient(180deg,rgba(255,255,255,.03),transparent 30%),var(--panel);
   border:1px solid var(--line);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.35)
 }
-.side {
-  border-right: 1px solid var(--line);
+.side{
+  padding:16px;
+  max-height:calc(100vh - 36px);
+  overflow-y:auto;
+  overflow-x:hidden;
 }
 h1{margin:0 0 6px;font-size:22px}
 .muted{color:var(--muted);margin:0 0 14px}
@@ -55,8 +59,8 @@ input{min-width:170px}
   align-items:center;
   justify-content:center;
   padding:14px;
-  height:calc(100vh - 300px);   /* 👈 15cm ≈ 150px üst + 150px alt */
-  margin:150px 0;              /* üst ve alt boşluğu veriyoruz */
+  height:calc(100vh - 36px);   /* sabit yükseklik */
+  margin:0;                    /* ❌ önceki margin:150px 0 satırını KALDIR */
   overflow:hidden;
 }
 .board{
@@ -434,25 +438,22 @@ function fitBoard(){
   const gridWrap = document.querySelector('.grid');
   if(!gridWrap) return;
 
-  // .grid'in kendi ölçülerini kullan (yükseklik artık sabit)
-  const availW = gridWrap.clientWidth  - 28;   // padding/gap payı
+  const availW = gridWrap.clientWidth  - 28;
   const availH = gridWrap.clientHeight - 28;
 
-  const gapX = 10 * (cols - 1);   // CSS --gap ile aynı
+  const gapX = 10 * (cols - 1);
   const gapY = 10 * (rows - 1);
 
-  // Karo boyutu: genişlik ve yükseklik sınırları
   let tile = Math.floor(Math.min(
     (availW - gapX) / cols,
     (availH - gapY) / rows
   ));
 
-  // Güvenli alt/üst sınırlar (çok küçük ya da çok büyük olmasın)
   tile = Math.max(72, Math.min(tile, 220));
-
   document.documentElement.style.setProperty('--tile', tile + 'px');
   boardEl.style.gridTemplateColumns = `repeat(${cols}, var(--tile))`;
 }
+
 
 
 
