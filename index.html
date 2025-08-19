@@ -11,6 +11,10 @@
   --bg:#0f1115;--panel:#161a23;--muted:#8a93a6;--text:#e6edf6;--accent:#89d185;--line:#232838;
   --good:#7ee787;--warn:#f2cc60;--bad:#ff7b72;
   --tile:120px; --gap:10px;
+
+  /* 🎯 hizalama ayarları */
+  --left-offset: 24px;     /* sol paneli aşağı indir (↑ artır/azalt) */
+  --right-shrink: 60px;    /* sağ paneli kısalt (↑ artır/azalt) */
 }
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -38,7 +42,8 @@ body{
 }
 .side{
   padding:16px;
-  max-height:calc(100vh - 36px);
+  margin-top: var(--left-offset);
+  max-height: calc(100vh - 36px - var(--left-offset));
   overflow-y:auto;
   overflow-x:hidden;
 }
@@ -55,12 +60,10 @@ input{min-width:170px}
 .stats{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0 4px}
 .stat{padding:6px 10px;border:1px dashed var(--line);border-radius:10px;color:var(--muted);font-size:13px}
 .grid{
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:14px;
-  height:calc(100vh - 36px);   /* sabit yükseklik */
-  margin:0;                    /* ❌ önceki margin:150px 0 satırını KALDIR */
+  display:flex; align-items:center; justify-content:center; padding:14px;
+  height: calc(100vh - 36px - var(--right-shrink));
+  margin-top: calc(var(--right-shrink) / 2);
+  margin-bottom: calc(var(--right-shrink) / 2);
   overflow:hidden;
 }
 .sidebar {
