@@ -338,9 +338,11 @@ function byTheme(th){
 }
 
 function setup(){
-  mode = $('#mode').value; byTheme($('#theme').value);
+  mode = $('#mode').value; 
+  byTheme($('#theme').value);
+
   const [cols, rows] = byMode(mode);
-  boardEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  boardEl.style.gridTemplateColumns = `repeat(${cols}, var(--tile))`;
 
   seed = Math.floor(Math.random()*1e9);
   $('#seedLabel').textContent = String(seed).slice(-6);
@@ -369,7 +371,34 @@ function setup(){
   $('#status').innerHTML = `<span class="pill">Good luck! 🐄</span>`;
   if(timer) clearInterval(timer);
   timer = setInterval(()=>{ elapsed++; $('#time').textContent = fmtTime(elapsed)}, 1000);
+
+  fitBoard();   // 🔥 Bunu ekle
 }
+
+
+function fitBoard(){
+  const [cols, rows] = byMode(mode);
+  const gridWrap = document.querySelector('.grid');
+  if(!gridWrap) return;
+
+  // Grid kapsayıcısının gerçek ölçülerini baz al
+  const availW = gridWrap.clientWidth - 28;   // padding/gap payı
+  const availH = window.innerHeight - 140;    // üst/alt ve yan panel payı
+
+  const gapX = 10 * (cols - 1);               // CSS --gap ile eşit
+  const gapY = 10 * (rows - 1);
+
+  const tile = Math.floor(Math.min(
+    (availW - gapX) / cols,
+    (availH - gapY) / rows
+  ));
+
+  // CSS değişkenini ve kolon şablonunu güncelle
+  document.documentElement.style.setProperty('--tile', tile + 'px');
+  boardEl.style.gridTemplateColumns = `repeat(${cols}, var(--tile))`;
+}
+
+
 
 function onFlip(e){
   const tile = e.currentTarget;
@@ -459,6 +488,8 @@ $('#saveName').addEventListener('click', ()=>{
   if(savedName) $('#username').value = savedName;
   else $('#username').value = 'anon';
   setup();
+  fitBoard();
+  window.addEventListener('resize', fitBoard);
   renderLeaderboard();
 })();
 </script>
