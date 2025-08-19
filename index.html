@@ -198,42 +198,43 @@ const eyesList=['normal','sleepy','sunglasses','laser','hearts'];
 const mouths=['smile','tongue','open','vibe','whistle'];
 const accs=['none','cap','ring','bell','astro'];
 
-function drawCow(seed){
+function drawCow(seed, v = {}){
   const R = rng(seed);
 
-  // --- çeşitlilik anahtarları (tohumdan türet)
-  const bodyIdx = Math.floor(R()*bodies.length);
-  const eyeIdx  = Math.floor(R()*5);
-  const mouthIdx= Math.floor(R()*5);
-  const accIdx  = Math.floor(R()*5);
-  const patchSide = R() < 0.5 ? -1 : +1;          // sol/sağ
-  const headTilt  = (R()-.5) * 0.18;              // -10°..+10°
+  // Eğer setup'tan varyant geldiyse onu kullan; yoksa rastgele üret
+  const bodyIdx   = (v.bodyIdx ?? Math.floor(R()*bodies.length)) | 0;
+  const eye       = v.eye   ?? eyesList[Math.floor(R()*eyesList.length)];
+  const mouth     = v.mouth ?? mouths[Math.floor(R()*mouths.length)];
+  const acc       = v.acc   ?? accs[Math.floor(R()*accs.length)];
+  const hue       = (v.hue  ?? Math.floor(R()*360)) | 0;
+  const patchSide = R() < 0.5 ? -1 : +1;
+  const headTilt  = (R()-.5) * 0.18;
   const blushOn   = R() < 0.65;
-  const frameStyle= Math.floor(R()*4);            // 0..3
+  const frameStyle= Math.floor(R()*4);
   const ringOn    = R() < 0.35;
 
   const body = bodies[bodyIdx];
-  const eye  = eyesList[eyeIdx];
-  const mouth= mouths[mouthIdx];
-  const acc  = accs[accIdx];
 
   const c = document.createElement('canvas'); c.width=size; c.height=size;
   const ctx=c.getContext('2d');
 
-  // --- arka plan + çerçeve stili
+  // Arka plan
   const bg = ctx.createLinearGradient(0,0,size,size);
   bg.addColorStop(0,'#0a0e1a'); bg.addColorStop(1,'#121a2c');
   ctx.fillStyle=bg; ctx.fillRect(0,0,size,size);
 
-  if(frameStyle===1){ // ince halka
-    ctx.strokeStyle='rgba(180,200,255,.25)'; ctx.lineWidth=10;
+  // Hafif filtre: her çifte farklı renk tonu
+  ctx.save();
+  ctx.filter = `hue-rotate(${hue}deg) saturate(1.05)`;
+
+  // Çerçeve
+  if(frameStyle===1){ ctx.strokeStyle='rgba(180,200,255,.25)'; ctx.lineWidth=10;
     ctx.beginPath(); ctx.arc(cx,cy, size*0.46, 0, Math.PI*2); ctx.stroke();
-  } else if(frameStyle===2){ // çift halka
-    ctx.strokeStyle='rgba(120,200,255,.22)'; ctx.lineWidth=8;
+  } else if(frameStyle===2){ ctx.strokeStyle='rgba(120,200,255,.22)'; ctx.lineWidth=8;
     ctx.beginPath(); ctx.arc(cx,cy, size*0.45, 0, Math.PI*2); ctx.stroke();
     ctx.strokeStyle='rgba(255,180,220,.18)'; ctx.lineWidth=5;
     ctx.beginPath(); ctx.arc(cx,cy, size*0.40, 0, Math.PI*2); ctx.stroke();
-  } else if(frameStyle===3){ // köşe parıltıları
+  } else if(frameStyle===3){
     ctx.fillStyle='rgba(255,255,255,.04)';
     for(const [x,y] of [[60,60],[size-60,60],[60,size-60],[size-60,size-60]]){
       ctx.beginPath(); ctx.arc(x,y,20,0,Math.PI*2); ctx.fill();
@@ -243,39 +244,49 @@ function drawCow(seed){
   const stroke=8;
   function outline(f,w=stroke){ctx.save();ctx.lineWidth=w;ctx.strokeStyle='#111';ctx.lineJoin='round';ctx.lineCap='round';f();ctx.stroke();ctx.restore();}
 
-  // --- sahneyi hafif döndür (kafa eğimi)
-  ctx.save();
-  ctx.translate(cx,cy);
-  ctx.rotate(headTilt);
-  ctx.translate(-cx,-cy);
+  // Sahneyi döndür (kafa eğimi)
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(headTilt); ctx.translate(-cx,-cy);
 
-  // baş
+  // Baş
   ctx.fillStyle=body.pal.base; const head=()=>{ctx.beginPath();ctx.ellipse(cx,cy+10,110,94,0,0,Math.PI*2)}; outline(head); head(); ctx.fill();
-  // kulaklar
+  // Kulaklar
   const le=()=>{ctx.beginPath();ctx.ellipse(cx-100,cy-40,28,42,-.2,0,Math.PI*2)}; outline(le); le(); ctx.fill();
   const re=()=>{ctx.beginPath();ctx.ellipse(cx+100,cy-40,28,42,.2,0,Math.PI*2)}; outline(re); re(); ctx.fill();
-  // boynuz
-  ctx.fillStyle=body.pal.horn; const lh=()=>{ctx.beginPath();ctx.moveTo(cx-62,cy-68);ctx.quadraticCurveTo(cx-82,cy-110,cx-40,cy-96);ctx.quadraticCurveTo(cx-36,cy-82,cx-62,cy-68)}; outline(lh); lh(); ctx.fill();
+  // Boynuz
+  ctx.fillStyle=body.pal.horn;
+  const lh=()=>{ctx.beginPath();ctx.moveTo(cx-62,cy-68);ctx.quadraticCurveTo(cx-82,cy-110,cx-40,cy-96);ctx.quadraticCurveTo(cx-36,cy-82,cx-62,cy-68)}; outline(lh); lh(); ctx.fill();
   const rh=()=>{ctx.beginPath();ctx.moveTo(cx+62,cy-68);ctx.quadraticCurveTo(cx+82,cy-110,cx+40,cy-96);ctx.quadraticCurveTo(cx+36,cy-82,cx+62,cy-68)}; outline(rh); rh(); ctx.fill();
 
-  // yüz patch (sağ/sol)
+  // Yüz patch (sağ/sol)
   if(body.patch){
     ctx.fillStyle='#9aa0a6';
     const p=()=>{ctx.beginPath();ctx.ellipse(cx+patchSide*42,cy-10,52,58,-.2*patchSide,0,Math.PI*2)};
     outline(p,6); p(); ctx.fill();
   }
 
-  // lekeler (bir tık daha iri)
-  ctx.fillStyle=body.pal.spot; const n=body.spots+1;
+  // --- Benekler: çakışmasız yerleşim ---
+  const RS = rng(v.spotSeed ?? Math.floor(R()*1e9));
+  const spots = [];
+  const n = 3 + Math.floor(RS()*4); // 3..6 adet
   for(let i=0;i<n;i++){
-    let x = cx + (R()*160-80), y = cy + (R()*120-60);
-    let rx=18+R()*38, ry=14+R()*34;
-    ctx.save(); ctx.translate(x,y); ctx.rotate((R()-.5)*1.0);
-    const sp=()=>{ctx.beginPath();ctx.ellipse(0,0,rx,ry,0,0,Math.PI*2)};
-    outline(sp,4); sp(); ctx.globalAlpha=.9; ctx.fill(); ctx.restore();
+    let tries=0, x, y;
+    // minimum mesafe: 22px
+    do{
+      x = cx + (RS()*160 - 80);
+      y = cy + (RS()*120 - 60);
+      tries++;
+    }while(spots.some(s => Math.hypot(s.x-x, s.y-y) < 22) && tries<30);
+    spots.push({
+      x,y, rx:18+RS()*38, ry:14+RS()*34, rot:(RS()-.5)*1.0
+    });
+  }
+  ctx.fillStyle=body.pal.spot;
+  for(const s of spots){
+    ctx.save(); ctx.translate(s.x,s.y); ctx.rotate(s.rot);
+    const sp=()=>{ctx.beginPath();ctx.ellipse(0,0,s.rx,s.ry,0,0,Math.PI*2)}; outline(sp,4); sp(); ctx.globalAlpha=.92; ctx.fill(); ctx.restore();
   }
 
-  // burun + yanak
+  // Burun + yanak
   ctx.globalAlpha=1; ctx.fillStyle=body.pal.nose;
   const mz=()=>{ctx.beginPath();ctx.ellipse(cx,cy+48,76,42,0,0,Math.PI*2)}; outline(mz,6); mz(); ctx.fill();
   if(blushOn){
@@ -287,24 +298,23 @@ function drawCow(seed){
   const n1=()=>{ctx.beginPath();ctx.ellipse(cx-18,cy+48,7,12,0,0,Math.PI*2)}; outline(n1,4); n1(); ctx.fill();
   const n2=()=>{ctx.beginPath();ctx.ellipse(cx+18,cy+48,7,12,0,0,Math.PI*2)}; outline(n2,4); n2(); ctx.fill();
 
-  // gözler
-  const eyes = eye;
-  if(eyes==='normal'){ ctx.fillStyle='#222';
+  // Gözler
+  if(eye==='normal'){ ctx.fillStyle='#222';
     const s=(x,y)=>{const f=()=>{ctx.beginPath();ctx.ellipse(x,y,22,16,0,0,Math.PI*2)}; outline(f,6); f(); ctx.fill(); ctx.fillStyle='#fff'; ctx.beginPath(); ctx.ellipse(x,y,16,12,0,0,Math.PI*2); ctx.fill();};
     s(cx-40,cy-6); s(cx+40,cy-6); ctx.fillStyle='#111';
     ctx.beginPath(); ctx.arc(cx-34,cy-6,5,0,Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.arc(cx+46,cy-4,5,0,Math.PI*2); ctx.fill();
-  } else if(eyes==='sleepy'){ ctx.strokeStyle='#111'; ctx.lineWidth=8; ctx.lineCap='round';
+  } else if(eye==='sleepy'){ ctx.strokeStyle='#111'; ctx.lineWidth=8; ctx.lineCap='round';
     ctx.beginPath(); ctx.moveTo(cx-60,cy); ctx.quadraticCurveTo(cx-44,cy-14,cx-28,cy); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(cx+28,cy); ctx.quadraticCurveTo(cx+44,cy-14,cx+60,cy); ctx.stroke();
-  } else if(eyes==='sunglasses'){ const lens=(x)=>{ctx.fillStyle='#0e0e0e'; const f=()=>{ctx.beginPath();ctx.ellipse(x,cy,24,18,0,0,Math.PI*2)}; outline(f,8); f(); ctx.fill();}; lens(cx-40); lens(cx+40); ctx.strokeStyle='#333'; ctx.lineWidth=8; ctx.beginPath(); ctx.moveTo(cx-20,cy); ctx.lineTo(cx+20,cy); ctx.stroke(); }
-  else if(eyes==='laser'){ ctx.fillStyle='#fff'; [-40,40].forEach(dx=>{const f=()=>{ctx.beginPath();ctx.ellipse(cx+dx,cy,18,14,0,0,Math.PI*2)}; outline(f,6); f(); ctx.fill();}); ctx.fillStyle='#ff0040'; ctx.beginPath(); ctx.arc(cx-40,cy,4,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(cx+40,cy,4,0,Math.PI*2); ctx.fill(); ctx.fillStyle='rgba(255,0,64,.65)'; ctx.fillRect(0, cy+2, size, 4);}
+  } else if(eye==='sunglasses'){ const lens=(x)=>{ctx.fillStyle='#0e0e0e'; const f=()=>{ctx.beginPath();ctx.ellipse(x,cy,24,18,0,0,Math.PI*2)}; outline(f,8); f(); ctx.fill();}; lens(cx-40); lens(cx+40); ctx.strokeStyle='#333'; ctx.lineWidth=8; ctx.beginPath(); ctx.moveTo(cx-20,cy); ctx.lineTo(cx+20,cy); ctx.stroke(); }
+  else if(eye==='laser'){ ctx.fillStyle='#fff'; [-40,40].forEach(dx=>{const f=()=>{ctx.beginPath();ctx.ellipse(cx+dx,cy,18,14,0,0,Math.PI*2)}; outline(f,6); f(); ctx.fill();}); ctx.fillStyle='#ff0040'; ctx.beginPath(); ctx.arc(cx-40,cy,4,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(cx+40,cy,4,0,Math.PI*2); ctx.fill(); ctx.fillStyle='rgba(255,0,64,.55)'; ctx.fillRect(0, cy+2, size, 4);}
   else { // hearts
     ctx.fillStyle='#ff4d6d'; const heart=(x,y)=>{ctx.save();ctx.translate(x,y); const f=()=>{ctx.beginPath();ctx.moveTo(0,-8);ctx.bezierCurveTo(8,-18,18,-4,0,14);ctx.bezierCurveTo(-18,-4,-8,-18,0,-8)}; outline(f,6); f(); ctx.fill(); ctx.restore();};
     heart(cx-40,cy); heart(cx+40,cy);
   }
 
-  // ağız
+  // Ağız
   ctx.strokeStyle='#3a1a10'; ctx.lineWidth=8; ctx.lineCap='round';
   if(mouth==='smile'){ ctx.beginPath(); ctx.arc(cx, cy+40, 32, 0, Math.PI); ctx.stroke();}
   if(mouth==='tongue'){ ctx.beginPath(); ctx.moveTo(cx-28,cy+42); ctx.quadraticCurveTo(cx,cy+62,cx+28,cy+42); ctx.stroke(); ctx.fillStyle='#ff6b9a'; ctx.beginPath(); ctx.ellipse(cx, cy+54, 12, 9, 0, 0, Math.PI*2); ctx.fill();}
@@ -312,20 +322,22 @@ function drawCow(seed){
   if(mouth==='vibe'){ ctx.beginPath(); ctx.moveTo(cx-30,cy+44); ctx.lineTo(cx-6,cy+52); ctx.lineTo(cx+12,cy+40); ctx.lineTo(cx+30,cy+48); ctx.stroke();}
   if(mouth==='whistle'){ ctx.beginPath(); ctx.arc(cx, cy+48, 12, Math.PI*.1, Math.PI*.9); ctx.stroke();}
 
-  // aksesuar + kulak halkası
+  // Aksesuar + kulak halkası
   if(acc==='cap'){ const f=()=>{ctx.beginPath(); ctx.ellipse(cx, cy-54, 70, 30, .02, 0, Math.PI*2)}; outline(f,6); f(); ctx.fillStyle='#2b6cf0'; ctx.fill(); const br=()=>{ctx.beginPath(); ctx.ellipse(cx+30, cy-38, 54, 18, .02, 0, Math.PI*2)}; outline(br,6); br(); ctx.fillStyle='#244db3'; ctx.fill();}
   if(acc==='ring' || ringOn){ ctx.strokeStyle='#ffd400'; ctx.lineWidth=8; ctx.beginPath(); ctx.arc(cx-100, cy-10, 14, 0, Math.PI*2); ctx.stroke(); }
   if(acc==='bell'){ const f=()=>{ctx.beginPath(); ctx.ellipse(cx, cy+86, 18, 14, 0, 0, Math.PI*2)}; outline(f,6); f(); ctx.fillStyle='#ffcf33'; ctx.fill(); ctx.fillStyle='#c08a00'; ctx.beginPath(); ctx.arc(cx, cy+94, 6, 0, Math.PI*2); ctx.fill();}
   if(acc==='astro'){ ctx.strokeStyle='rgba(200,230,255,.7)'; ctx.lineWidth=8; ctx.beginPath(); ctx.ellipse(cx, cy-6, 130, 120, 0, 0, Math.PI*2); ctx.stroke();}
 
-  ctx.restore(); // head tilt restore
+  ctx.restore(); // head tilt
+  ctx.restore(); // filter
 
-  // alt şerit
+  // Alt şerit
   ctx.fillStyle='rgba(0,0,0,.35)'; ctx.fillRect(0,size-40,size,40);
   ctx.fillStyle='rgba(255,255,255,.9)'; ctx.font='16px ui-sans-serif'; ctx.fillText('Lamumu', 12, size-12);
 
   return c.toDataURL('image/png');
 }
+
 
 
 /* ---------- game state ---------- */
@@ -345,41 +357,72 @@ function byTheme(th){
 }
 
 function setup(){
-  mode = $('#mode').value; 
+  // 1) Mod & tema
+  mode = $('#mode').value;
   byTheme($('#theme').value);
 
+  // 2) Grid kolonları (tile tabanlı)
   const [cols, rows] = byMode(mode);
   boardEl.style.gridTemplateColumns = `repeat(${cols}, var(--tile))`;
 
+  // 3) Yeni seed ve etiket
   seed = Math.floor(Math.random()*1e9);
   $('#seedLabel').textContent = String(seed).slice(-6);
 
-  const total = cols*rows;
+  // 4) Kart kimlikleri (her çift için 1 id)
+  const total = cols * rows;
   const R = rng(seed);
   const ids = [];
-  for(let i=0;i<total/2;i++){ ids.push(Math.floor(R()*1e9)); }
+  for (let i = 0; i < total/2; i++) ids.push(Math.floor(R()*1e9));
+
+  // 5) Çiftleri kar ve diziye iki kez koy
   const cards = shuffle([...ids, ...ids], R);
 
-  boardEl.innerHTML='';
-  for(const id of cards){
-    const d = document.createElement('div'); d.className='tile'; d.dataset.id=id;
-    const inner = document.createElement('div'); inner.className='inner';
-    const front = document.createElement('div'); front.className='face front';
+  // 6) Her ÇİFT için benzersiz varyant (renk/gövde/göz/ağız/aksesuar/benek)
+  const pairCount = total/2;
+  const hues = shuffle([...Array(pairCount)].map((_, i) => (i*47) % 360), R); // geniş aralıklı hue
+  const bodyOrder = shuffle([...Array(bodies.length).keys()], R);
+
+  const pairVariant = {};
+  for (let i = 0; i < pairCount; i++){
+    pairVariant[ids[i]] = {
+      bodyIdx: bodyOrder[i % bodies.length],
+      hue: hues[i],
+      spotSeed: Math.floor(R()*1e9),
+      eye:   eyesList[i % eyesList.length],
+      mouth: mouths[(i*2) % mouths.length],
+      acc:   accs[(i*3) % accs.length],
+    };
+  }
+
+  // 7) Board'u kur
+  boardEl.innerHTML = '';
+  for (const id of cards){
+    const d = document.createElement('div'); d.className = 'tile'; d.dataset.id = id;
+    const inner = document.createElement('div'); inner.className = 'inner';
+    const front = document.createElement('div'); front.className = 'face front';
     front.innerHTML = `<div class="moo">LAMUMU</div>`;
-    const back = document.createElement('div'); back.className='face back';
-    const img = new Image(); img.src = drawCow(id); img.style.width='100%'; img.style.height='100%'; img.draggable=false;
+    const back = document.createElement('div'); back.className = 'face back';
+
+    const img = new Image();
+    img.src = drawCow(id, pairVariant[id]);   // 👈 çift varyantı uygulanıyor
+    img.style.width = '100%'; img.style.height = '100%'; img.draggable = false;
+
     back.appendChild(img);
-    inner.appendChild(front); inner.appendChild(back); d.appendChild(inner);
+    inner.appendChild(front); inner.appendChild(back);
+    d.appendChild(inner);
     d.addEventListener('click', onFlip);
     boardEl.appendChild(d);
   }
 
-  matches = 0; moves=0; elapsed=0; updateStats();
+  // 8) Sayaçlar & durum
+  matches = 0; moves = 0; elapsed = 0; updateStats();
   $('#status').innerHTML = `<span class="pill">Good luck! 🐄</span>`;
-  if(timer) clearInterval(timer);
-  timer = setInterval(()=>{ elapsed++; $('#time').textContent = fmtTime(elapsed)}, 1000);
+  if (timer) clearInterval(timer);
+  timer = setInterval(() => { elapsed++; $('#time').textContent = fmtTime(elapsed); }, 1000);
 
-  fitBoard();   // 🔥 Bunu ekle
+  // 9) Ekrana sığdır
+  fitBoard();
 }
 
 
