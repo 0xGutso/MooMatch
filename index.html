@@ -425,8 +425,8 @@ function setup(){
   // 8) Sayaçlar & durum
   matches = 0; moves = 0; elapsed = 0; updateStats();
   $('#status').innerHTML = `<span class="pill">Good luck! 🐄</span>`;
-  if (timer) clearInterval(timer);
-  timer = setInterval(() => { elapsed++; $('#time').textContent = fmtTime(elapsed); }, 1000);
+  if(timer) clearInterval(timer);
+  timer = null;
 
   // 9) Ekrana sığdır
   fitBoard();
@@ -460,19 +460,37 @@ function fitBoard(){
 
 function onFlip(e){
   const tile = e.currentTarget;
-  if(lock || tile.classList.contains('flipped')) return;
+
+  // Geçersiz tıklamaları engelle
+  if (lock || tile.classList.contains('flipped')) return;
+
+  // ⏱️ İlk geçerli tıklamada timer'ı başlat
+  if (!timer) {
+    timer = setInterval(() => {
+      elapsed++;
+      $('#time').textContent = fmtTime(elapsed);
+    }, 1000);
+  }
+
+  // Flip mantığı
   tile.classList.add('flipped');
-  if(!first){ first = tile; return; }
+  if (!first) { first = tile; return; }
+
   moves++; updateStats();
 
   const match = first.dataset.id === tile.dataset.id;
-  if(match){
-    matches++; first=null; checkWin();
-  }else{
-    lock=true;
-    setTimeout(()=>{ first.classList.remove('flipped'); tile.classList.remove('flipped'); first=null; lock=false; }, 650);
+  if (match) {
+    matches++; first = null; checkWin();
+  } else {
+    lock = true;
+    setTimeout(() => {
+      first.classList.remove('flipped');
+      tile.classList.remove('flipped');
+      first = null; lock = false;
+    }, 650);
   }
 }
+
 
 function updateStats(){
   $('#moves').textContent = moves;
