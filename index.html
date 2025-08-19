@@ -48,9 +48,13 @@ input{min-width:170px}
 .stats{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0 4px}
 .stat{padding:6px 10px;border:1px dashed var(--line);border-radius:10px;color:var(--muted);font-size:13px}
 .grid{
-  display:flex; align-items:center; justify-content:center; padding:14px;
-  height:calc(100vh - 36px);      /* 👈 eklendi */
-  overflow:hidden;                /* 👈 eklendi (taşmalar görünmesin) */
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:14px;
+  height:calc(100vh - 300px);   /* 👈 15cm ≈ 150px üst + 150px alt */
+  margin:150px 0;              /* üst ve alt boşluğu veriyoruz */
+  overflow:hidden;
 }
 .board{
   display:grid;
